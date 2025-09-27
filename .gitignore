@@ -1,10 +1,35 @@
-HELP.md
+# =========================
+# Build / Maven
+# =========================
 target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# mantenha o wrapper no repo
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
 
-### STS ###
+# Logs
+*.log
+
+# =========================
+# H2 Database (arquivo)
+# =========================
+data/
+*.h2.db
+*.mv.db
+*.trace.db
+
+# =========================
+# IDEs
+# =========================
+# IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code
+.vscode/
+
+# Spring Tool Suite / Eclipse
 .apt_generated
 .classpath
 .factorypath
@@ -13,13 +38,7 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
+# NetBeans
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -29,5 +48,11 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
-.vscode/
+# =========================
+# SO
+# =========================
+.DS_Store
+Thumbs.db
+
+# (opcional) ajuda local não precisa ir pro repo
+HELP.md
