@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-br">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Task Manager</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+
+    <style>
+        :root{
+            --bg:#0b1118; --panel:#0f1621; --card:#121b27; --txt:#e7eef8; --muted:#9aa7b5;
+            --brand:#8ac5ff; --brand2:#86f1cb; --ring:rgba(138,197,255,.35); --radius:18px;
+            --shadow:0 10px 30px rgba(0,0,0,.35)
+        }
+        html,body{
+            background:
+                    radial-gradient(1200px 600px at 10% -10%, rgba(134,241,203,.12), transparent 50%),
+                    radial-gradient(1000px 700px at 100% 0%, rgba(138,197,255,.12), transparent 50%),
+                    var(--bg);
+            color:var(--txt); font-family:Inter,system-ui
+        }
+        .container{max-width:1180px}
+        header h1{
+            font-weight:800;
+            font-size:clamp(24px,3.4vw,38px);
+            margin:0;
+            background:linear-gradient(90deg,var(--brand),var(--brand2));
+            -webkit-background-clip:text;background-clip:text;color:transparent
+        }
+        .subtitle{color:var(--muted);margin:.2rem 0 1rem; font-size:.95rem}
+
+        .panel{
+            background:var(--panel);
+            border:1px solid rgba(255,255,255,.06);
+            border-radius:var(--radius);
+            box-shadow:var(--shadow);
+            padding-top:.65rem;
+        }
+        details.panel>summary{ font-size:1rem; padding:0 .9rem .2rem; }
+
+        .kanban{display:grid; gap:1rem; grid-template-columns:repeat(3,1fr)}
+        @media(max-width:960px){.kanban{grid-template-columns:1fr}}
+
+        .bucket{background:var(--card);border:1px solid rgba(255,255,255,.06);
+            border-radius:var(--radius); padding:.8rem}
+
+        .chip{font-size:10px;padding:.22rem .52rem;border-radius:999px;border:1px solid rgba(255,255,255,.12)}
+        .chip.todo{color:#cdd7e4}
+        .chip.prog{color:#ffe29a;border-color:rgba(255,226,154,.35)}
+        .chip.done{color:#95f5d6;border-color:rgba(149,245,214,.35)}
+        .divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);margin:.6rem 0}
+
+        input,select,textarea,button{border-radius:12px}
+        input:focus,select:focus,textarea:focus{outline:2px solid var(--ring)}
+        .btn-brand{background:linear-gradient(135deg,var(--brand),var(--brand2));border:none;color:#0b0f14;font-weight:700}
+
+        article.task{
+            background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+            border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:.8rem; margin:.6rem 0
+        }
+        .task-title{font-weight:700;margin:0;font-size:1.25rem}
+        .task-desc{color:#9fb6d4;font-size:.9rem;margin:.3rem 0 .45rem}
+        .meta{display:flex;gap:.45rem;align-items:center;color:var(--muted);font-size:.8rem}
+        .pill{padding:.18rem .46rem;border-radius:999px;border:1px solid rgba(255,255,255,.14)}
+        .row-actions{display:flex;gap:.45rem;margin-top:.6rem}
+        .btn-mini{padding:.32rem .52rem;font-size:.8rem;border-radius:9px}
+
+        /* === Form menor e central === */
+        .form-wrap{ max-width: 820px; margin: 0 auto; }
+        .form-compact{ font-size: .92rem; }
+        .grid-compact{
+            display:grid;
+            grid-template-columns: 1fr 200px 140px;  /* <<< data ficou mais larga */
+            gap:.6rem;
+        }
+        .form-compact input,
+        .form-compact select{
+            font-size:.95rem;
+            padding:.48rem .7rem;
+            height:auto;
+        }
+
+        input[type="date"]{ padding-right:2.2rem; }
+        input[type="date"]::-webkit-calendar-picker-indicator{ margin-left:.2rem }
+
+        .form-compact textarea{
+            font-size:.95rem;
+            min-height:64px;
+            padding:.55rem .7rem;
+        }
+        .form-compact .btn-brand{
+            padding:.6rem;
+            font-size:1rem;
+            border-radius:12px;
+        }
+    </style>
+</head>
+<body class="container">
+
+<header style="margin:24px 0 16px">
+    <h1>Projeto Diamante — Task Manager</h1>
+    <p class="subtitle">Organize suas tarefas por status com um visual leve e delicado.</p>
+</header>
+
+
+<div class="form-wrap">
+    <details class="panel form-compact" open>
+        <summary>Nova Tarefa</summary>
+        <form th:action="@{/tasks}" method="post" th:object="${newTask}" style="padding:.9rem .9rem .5rem">
+            <div class="grid-compact">
+                <input th:field="*{title}" placeholder="Título" required maxlength="120"/>
+                <input th:field="*{dueDate}" type="date" placeholder="dd/mm/aaaa"/>
+                <select th:field="*{status}">
+                    <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
+                </select>
+            </div>
+            <textarea th:field="*{description}" placeholder="Descrição (opcional)" maxlength="2000"></textarea>
+            <button class="btn-brand" type="submit" style="width:100%;margin-top:.6rem">Criar</button>
+        </form>
+    </details>
+</div>
+
+<div style="height:12px"></div>
+
+<section class="kanban">
+    <!-- TODO -->
+    <div class="bucket">
+        <h3><span class="chip todo">TODO</span></h3>
+        <div class="divider"></div>
+
+        <article class="task" th:each="t : ${tasks}" th:if="${t.status.name() == 'TODO'}">
+            <h4 class="task-title" th:text="${t.title}">Título</h4>
+            <p class="task-desc" th:text="${t.description}">Descrição</p>
+            <div class="meta">
+        <span class="pill" th:if="${t.dueDate != null}">
+          <small th:text="'Entrega: ' + ${#temporals.format(t.dueDate,'dd/MM/yyyy')}"></small>
+        </span>
+                <span class="pill"><small th:text="'Criada: ' + ${#temporals.format(t.createdAt,'dd/MM HH:mm')}"></small></span>
+            </div>
+            <div class="row-actions">
+                <form th:action="@{|/tasks/${t.id}/move|}" method="post">
+                    <input type="hidden" name="status" value="IN_PROGRESS"/>
+                    <button class="btn-mini">Iniciar</button>
+                </form>
+                <a class="btn-mini secondary" th:href="@{|/tasks/${t.id}/edit|}">Editar</a>
+                <form th:action="@{|/tasks/${t.id}/delete|}" method="post" onsubmit="return confirm('Remover esta tarefa?')">
+                    <button class="btn-mini secondary">Excluir</button>
+                </form>
+            </div>
+        </article>
+    </div>
+
+    <div class="bucket">
+        <h3><span class="chip prog">IN_PROGRESS</span></h3>
+        <div class="divider"></div>
+
+        <article class="task" th:each="t : ${tasks}" th:if="${t.status.name() == 'IN_PROGRESS'}">
+            <h4 class="task-title" th:text="${t.title}">Título</h4>
+            <p class="task-desc" th:text="${t.description}">Descrição</p>
+            <div class="meta">
+        <span class="pill" th:if="${t.dueDate != null}">
+          <small th:text="'Entrega: ' + ${#temporals.format(t.dueDate,'dd/MM/yyyy')}"></small>
+        </span>
+                <span class="pill"><small th:text="'Atualizada: ' + ${#temporals.format(t.updatedAt,'dd/MM HH:mm')}"></small></span>
+            </div>
+            <div class="row-actions">
+                <form th:action="@{|/tasks/${t.id}/move|}" method="post">
+                    <input type="hidden" name="status" value="DONE"/>
+                    <button class="btn-mini">Concluir</button>
+                </form>
+                <a class="btn-mini secondary" th:href="@{|/tasks/${t.id}/edit|}">Editar</a>
+                <form th:action="@{|/tasks/${t.id}/delete|}" method="post" onsubmit="return confirm('Remover esta tarefa?')">
+                    <button class="btn-mini secondary">Excluir</button>
+                </form>
+            </div>
+        </article>
+    </div>
+
+
+    <div class="bucket">
+        <h3><span class="chip done">DONE</span></h3>
+        <div class="divider"></div>
+
+        <article class="task" th:each="t : ${tasks}" th:if="${t.status.name() == 'DONE'}">
+            <h4 class="task-title" th:text="${t.title}">Título</h4>
+            <p class="task-desc" th:text="${t.description}">Descrição</p>
+            <div class="meta">
+        <span class="pill" th:if="${t.dueDate != null}">
+          <small th:text="'Entrega: ' + ${#temporals.format(t.dueDate,'dd/MM/yyyy')}"></small>
+        </span>
+                <span class="pill"><small th:text="'Concluída: ' + ${#temporals.format(t.updatedAt,'dd/MM HH:mm')}"></small></span>
+            </div>
+            <div class="row-actions">
+                <form th:action="@{|/tasks/${t.id}/move|}" method="post">
+                    <input type="hidden" name="status" value="TODO"/>
+                    <button class="btn-mini">Reabrir</button>
+                </form>
+                <a class="btn-mini secondary" th:href="@{|/tasks/${t.id}/edit|}">Editar</a>
+                <form th:action="@{|/tasks/${t.id}/delete|}" method="post" onsubmit="return confirm('Remover esta tarefa?')">
+                    <button class="btn-mini secondary">Excluir</button>
+                </form>
+            </div>
+        </article>
+    </div>
+</section>
+
+<footer style="opacity:.6;font-size:12px;text-align:center;margin:20px 0 36px">
+    Feito com ♥ para o Projeto Diamante
+</footer>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-br">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Editar Tarefa</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        :root{ --bg:#0b1118; --panel:#0f1621; --ring: rgba(138,197,255,.35) }
+        html,body{ background: var(--bg); color:#e7eef8; font-family:"Inter", system-ui }
+        .container{ max-width: 760px }
+        .card{ background: var(--panel); border:1px solid rgba(255,255,255,.06); border-radius:18px; box-shadow:0 10px 30px rgba(0,0,0,.35); padding:1.2rem }
+        input,select,textarea,button{ border-radius:14px }
+        input:focus,select:focus,textarea:focus{ outline:2px solid var(--ring) }
+        .btn-brand{ background: linear-gradient(135deg,#8ac5ff,#86f1cb); border:none; color:#0b0f14; font-weight:700 }
+    </style>
+</head>
+<body class="container">
+
+<header style="margin: 26px 0 12px">
+    <h2 style="margin:0;font-weight:800;background: linear-gradient(90deg,#8ac5ff,#86f1cb); -webkit-background-clip:text; color:transparent">
+        Editar Tarefa
+    </h2>
+    <p style="color:#9aa7b5; margin:.2rem 0 0">Ajuste os detalhes e salve.</p>
+</header>
+
+<section class="card">
+    <form th:action="@{|/tasks/${task.id}/edit|}" method="post" th:object="${task}">
+        <label>Título
+            <input th:field="*{title}" placeholder="Título" required maxlength="120"/>
+        </label>
+
+        <label>Descrição
+            <textarea th:field="*{description}" placeholder="Descrição" maxlength="2000" rows="4"></textarea>
+        </label>
+
+        <div class="grid">
+            <label>Entrega
+                <input th:field="*{dueDate}" type="date"/>
+            </label>
+            <label>Status
+                <select th:field="*{status}">
+                    <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"></option>
+                </select>
+            </label>
+        </div>
+
+        <div class="grid" style="margin-top:.8rem">
+            <button type="submit" class="btn-brand">Salvar</button>
+            <a href="/tasks" role="button" class="secondary">Voltar</a>
+        </div>
+    </form>
+</section>
+</body>
+</html>
