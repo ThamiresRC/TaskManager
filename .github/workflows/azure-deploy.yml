@@ -7,11 +7,6 @@ on:
 
 env:
   LOCATION: brazilsouth
-  RG_NAME: rg-taskmanager-brazilsouth
-  PLAN_NAME: asp-taskmanager-brazilsouth
-  WEBAPP_NAME: app-taskmanager-brazilsouth
-  SQL_SERVER: sql-taskmanager-brazilsouth
-  SQL_DB: taskmanagerdb
 
 jobs:
   build-provision-deploy:
@@ -33,37 +28,52 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Provision Infra (idempotent)
+      - name: Provision Infra (idempotent, nomes únicos)
         uses: azure/cli@v2
         with:
           inlineScript: |
             set -euo pipefail
             az config set extension.use_dynamic_install=yes_without_prompt
 
+            # Variáveis com SUFIXO único (ator do GitHub em minúsculo)
+            SUFFIX=$(echo "${GITHUB_ACTOR}" | tr '[:upper:]' '[:lower:]')
+            RG_NAME="rg-taskmanager-${SUFFIX}"
+            PLAN_NAME="asp-taskmanager-${SUFFIX}"
+            WEBAPP_NAME="app-taskmanager-${SUFFIX}"
+            SQL_SERVER="sql-taskmanager-${SUFFIX}"
+            SQL_DB="taskmanagerdb"
+
+            echo "Usando nomes:"
+            echo "RG_NAME=$RG_NAME"
+            echo "PLAN_NAME=$PLAN_NAME"
+            echo "WEBAPP_NAME=$WEBAPP_NAME"
+            echo "SQL_SERVER=$SQL_SERVER"
+            echo "SQL_DB=$SQL_DB"
+
             echo ">> Resource Group"
-            az group create -n "$RG_NAME" -l "$LOCATION"
+            az group create -n "$RG_NAME" -l "$LOCATION" 1>/dev/null
 
             echo ">> App Service Plan (Linux)"
-            az appservice plan show -g "$RG_NAME" -n "$PLAN_NAME" >/dev/null 2>&1 \
-              || az appservice plan create -g "$RG_NAME" -n "$PLAN_NAME" --is-linux --sku B1
+            az appservice plan show -g "$RG_NAME" -n "$PLAN_NAME" 1>/dev/null 2>&1 \
+              || az appservice plan create -g "$RG_NAME" -n "$PLAN_NAME" --is-linux --sku B1 1>/dev/null
 
             echo ">> Web App Java 17 (Linux)"
-            az webapp show -g "$RG_NAME" -n "$WEBAPP_NAME" >/dev/null 2>&1 \
-              || az webapp create -g "$RG_NAME" -p "$PLAN_NAME" -n "$WEBAPP_NAME" --runtime "JAVA:17"
+            az webapp show -g "$RG_NAME" -n "$WEBAPP_NAME" 1>/dev/null 2>&1 \
+              || az webapp create -g "$RG_NAME" -p "$PLAN_NAME" -n "$WEBAPP_NAME" --runtime "JAVA:17" 1>/dev/null
 
             echo ">> Azure SQL Server + DB"
-            az sql server show -g "$RG_NAME" -n "$SQL_SERVER" >/dev/null 2>&1 \
+            az sql server show -g "$RG_NAME" -n "$SQL_SERVER" 1>/dev/null 2>&1 \
               || az sql server create -g "$RG_NAME" -n "$SQL_SERVER" -l "$LOCATION" \
-                   -u "${{ secrets.SQL_ADMIN_LOGIN }}" -p "${{ secrets.SQL_ADMIN_PASSWORD }}"
+                   -u "${{ secrets.SQL_ADMIN_LOGIN }}" -p "${{ secrets.SQL_ADMIN_PASSWORD }}" 1>/dev/null
 
             echo ">> Firewall rule (Allow Azure Services)"
-            az sql server firewall-rule show -g "$RG_NAME" -s "$SQL_SERVER" -n AllowAzureServices >/dev/null 2>&1 \
+            az sql server firewall-rule show -g "$RG_NAME" -s "$SQL_SERVER" -n AllowAzureServices 1>/dev/null 2>&1 \
               || az sql server firewall-rule create -g "$RG_NAME" -s "$SQL_SERVER" -n AllowAzureServices \
-                   --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
+                   --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0 1>/dev/null
 
             echo ">> Database (Basic)"
-            az sql db show -g "$RG_NAME" -s "$SQL_SERVER" -n "$SQL_DB" >/dev/null 2>&1 \
-              || az sql db create -g "$RG_NAME" -s "$SQL_SERVER" -n "$SQL_DB" --service-objective Basic
+            az sql db show -g "$RG_NAME" -s "$SQL_SERVER" -n "$SQL_DB" 1>/dev/null 2>&1 \
+              || az sql db create -g "$RG_NAME" -s "$SQL_SERVER" -n "$SQL_DB" --service-objective Basic 1>/dev/null
 
             echo ">> App settings (usar Azure SQL em vez do H2)"
             JDBC_URL="jdbc:sqlserver://$SQL_SERVER.database.windows.net:1433;database=$SQL_DB;encrypt=true;trustServerCertificate=false;loginTimeout=30;"
@@ -71,7 +81,13 @@ jobs:
               SPRING_DATASOURCE_URL="$JDBC_URL" \
               SPRING_DATASOURCE_USERNAME="${{ secrets.SQL_ADMIN_LOGIN }}" \
               SPRING_DATASOURCE_PASSWORD="${{ secrets.SQL_ADMIN_PASSWORD }}" \
-              SPRING_JPA_HIBERNATE_DDL_AUTO=update
+              SPRING_JPA_HIBERNATE_DDL_AUTO=update 1>/dev/null
+
+            # Exportar para próximos steps
+            {
+              echo "RG_NAME=$RG_NAME"
+              echo "WEBAPP_NAME=$WEBAPP_NAME"
+            } >> "$GITHUB_ENV"
 
       - name: Build with Maven
         run: |
