@@ -35,7 +35,7 @@ jobs:
             set -euo pipefail
             az config set extension.use_dynamic_install=yes_without_prompt
 
-            # Variáveis com SUFIXO único (ator do GitHub em minúsculo)
+            # Sufixo único por usuário (evita conflito global)
             SUFFIX=$(echo "${GITHUB_ACTOR}" | tr '[:upper:]' '[:lower:]')
             RG_NAME="rg-taskmanager-${SUFFIX}"
             PLAN_NAME="asp-taskmanager-${SUFFIX}"
@@ -43,12 +43,12 @@ jobs:
             SQL_SERVER="sql-taskmanager-${SUFFIX}"
             SQL_DB="taskmanagerdb"
 
-            echo "Usando nomes:"
-            echo "RG_NAME=$RG_NAME"
-            echo "PLAN_NAME=$PLAN_NAME"
-            echo "WEBAPP_NAME=$WEBAPP_NAME"
-            echo "SQL_SERVER=$SQL_SERVER"
-            echo "SQL_DB=$SQL_DB"
+            echo "Usando:"
+            echo " RG_NAME=$RG_NAME"
+            echo " PLAN_NAME=$PLAN_NAME"
+            echo " WEBAPP_NAME=$WEBAPP_NAME"
+            echo " SQL_SERVER=$SQL_SERVER"
+            echo " SQL_DB=$SQL_DB"
 
             echo ">> Resource Group"
             az group create -n "$RG_NAME" -l "$LOCATION" 1>/dev/null
@@ -58,8 +58,17 @@ jobs:
               || az appservice plan create -g "$RG_NAME" -n "$PLAN_NAME" --is-linux --sku B1 1>/dev/null
 
             echo ">> Web App Java 17 (Linux)"
-            az webapp show -g "$RG_NAME" -n "$WEBAPP_NAME" 1>/dev/null 2>&1 \
-              || az webapp create -g "$RG_NAME" -p "$PLAN_NAME" -n "$WEBAPP_NAME" --runtime "JAVA:17" 1>/dev/null
+            if ! az webapp show -g "$RG_NAME" -n "$WEBAPP_NAME" 1>/dev/null 2>&1; then
+              # Tenta criar já com runtime correto
+              if ! az webapp create -g "$RG_NAME" -p "$PLAN_NAME" -n "$WEBAPP_NAME" --runtime "JAVA|17-java17" 1>/dev/null 2>&1; then
+                # Fallback: cria sem runtime e configura depois
+                az webapp create -g "$RG_NAME" -p "$PLAN_NAME" -n "$WEBAPP_NAME" 1>/dev/null
+                az webapp config set -g "$RG_NAME" -n "$WEBAPP_NAME" --linux-fx-version "JAVA|17-java17" 1>/dev/null
+              fi
+            else
+              # Se já existir, garante o runtime correto
+              az webapp config set -g "$RG_NAME" -n "$WEBAPP_NAME" --linux-fx-version "JAVA|17-java17" 1>/dev/null
+            fi
 
             echo ">> Azure SQL Server + DB"
             az sql server show -g "$RG_NAME" -n "$SQL_SERVER" 1>/dev/null 2>&1 \
@@ -83,7 +92,7 @@ jobs:
               SPRING_DATASOURCE_PASSWORD="${{ secrets.SQL_ADMIN_PASSWORD }}" \
               SPRING_JPA_HIBERNATE_DDL_AUTO=update 1>/dev/null
 
-            # Exportar para próximos steps
+            # Exporta p/ próximos steps
             {
               echo "RG_NAME=$RG_NAME"
               echo "WEBAPP_NAME=$WEBAPP_NAME"
