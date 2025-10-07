@@ -38,51 +38,40 @@ jobs:
         with:
           inlineScript: |
             set -euo pipefail
-
-            # Permitir instalação automática de extensões do AZ CLI
             az config set extension.use_dynamic_install=yes_without_prompt
 
-            # Resource Group
+            echo ">> Resource Group"
             az group create -n "$RG_NAME" -l "$LOCATION"
 
-            # App Service Plan (Linux)
+            echo ">> App Service Plan (Linux)"
             az appservice plan show -g "$RG_NAME" -n "$PLAN_NAME" >/dev/null 2>&1 \
               || az appservice plan create -g "$RG_NAME" -n "$PLAN_NAME" --is-linux --sku B1
 
-            # WebApp Java 17 (Linux)
+            echo ">> Web App Java 17 (Linux)"
             az webapp show -g "$RG_NAME" -n "$WEBAPP_NAME" >/dev/null 2>&1 \
               || az webapp create -g "$RG_NAME" -p "$PLAN_NAME" -n "$WEBAPP_NAME" --runtime "JAVA:17"
 
-            # Application Insights (instalar/atualizar extensão e criar recurso)
-            az extension add -n application-insights || az extension update -n application-insights
-            az monitor app-insights component show -g "$RG_NAME" -a "$WEBAPP_NAME-ai" >/dev/null 2>&1 \
-              || az monitor app-insights component create -g "$RG_NAME" -l "$LOCATION" -a "$WEBAPP_NAME-ai"
-            INSTR_KEY=$(az monitor app-insights component show -g "$RG_NAME" -a "$WEBAPP_NAME-ai" --query instrumentationKey -o tsv)
-
-            # Azure SQL Server + DB
+            echo ">> Azure SQL Server + DB"
             az sql server show -g "$RG_NAME" -n "$SQL_SERVER" >/dev/null 2>&1 \
               || az sql server create -g "$RG_NAME" -n "$SQL_SERVER" -l "$LOCATION" \
                    -u "${{ secrets.SQL_ADMIN_LOGIN }}" -p "${{ secrets.SQL_ADMIN_PASSWORD }}"
 
-            # Permitir serviços do Azure a acessar o SQL
+            echo ">> Firewall rule (Allow Azure Services)"
             az sql server firewall-rule show -g "$RG_NAME" -s "$SQL_SERVER" -n AllowAzureServices >/dev/null 2>&1 \
               || az sql server firewall-rule create -g "$RG_NAME" -s "$SQL_SERVER" -n AllowAzureServices \
                    --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
 
-            # Banco (Basic)
+            echo ">> Database (Basic)"
             az sql db show -g "$RG_NAME" -s "$SQL_SERVER" -n "$SQL_DB" >/dev/null 2>&1 \
               || az sql db create -g "$RG_NAME" -s "$SQL_SERVER" -n "$SQL_DB" --service-objective Basic
 
-            # JDBC para Spring
+            echo ">> App settings (usar Azure SQL em vez do H2)"
             JDBC_URL="jdbc:sqlserver://$SQL_SERVER.database.windows.net:1433;database=$SQL_DB;encrypt=true;trustServerCertificate=false;loginTimeout=30;"
-
-            # App Settings para substituir H2 por Azure SQL
             az webapp config appsettings set -g "$RG_NAME" -n "$WEBAPP_NAME" --settings \
               SPRING_DATASOURCE_URL="$JDBC_URL" \
               SPRING_DATASOURCE_USERNAME="${{ secrets.SQL_ADMIN_LOGIN }}" \
               SPRING_DATASOURCE_PASSWORD="${{ secrets.SQL_ADMIN_PASSWORD }}" \
-              SPRING_JPA_HIBERNATE_DDL_AUTO=update \
-              APPLICATIONINSIGHTS_CONNECTION_STRING="InstrumentationKey=$INSTR_KEY"
+              SPRING_JPA_HIBERNATE_DDL_AUTO=update
 
       - name: Build with Maven
         run: |
