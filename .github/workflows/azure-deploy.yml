@@ -33,12 +33,14 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # ---- Infra: RG, Plan, WebApp, SQL, Insights ----
       - name: Provision Infra (idempotent)
         uses: azure/cli@v2
         with:
           inlineScript: |
-            set -e
+            set -euo pipefail
+
+            # Permitir instalação automática de extensões do AZ CLI
+            az config set extension.use_dynamic_install=yes_without_prompt
 
             # Resource Group
             az group create -n "$RG_NAME" -l "$LOCATION"
@@ -49,10 +51,10 @@ jobs:
 
             # WebApp Java 17 (Linux)
             az webapp show -g "$RG_NAME" -n "$WEBAPP_NAME" >/dev/null 2>&1 \
-              || az webapp create -g "$RG_NAME" -p "$PLAN_NAME" -n "$WEBAPP_NAME" --runtime "JAVA:17-java17"
-            az webapp config set -g "$RG_NAME" -n "$WEBAPP_NAME" --linux-fx-version "JAVA|17-java17"
+              || az webapp create -g "$RG_NAME" -p "$PLAN_NAME" -n "$WEBAPP_NAME" --runtime "JAVA:17"
 
-            # Application Insights
+            # Application Insights (instalar/atualizar extensão e criar recurso)
+            az extension add -n application-insights || az extension update -n application-insights
             az monitor app-insights component show -g "$RG_NAME" -a "$WEBAPP_NAME-ai" >/dev/null 2>&1 \
               || az monitor app-insights component create -g "$RG_NAME" -l "$LOCATION" -a "$WEBAPP_NAME-ai"
             INSTR_KEY=$(az monitor app-insights component show -g "$RG_NAME" -a "$WEBAPP_NAME-ai" --query instrumentationKey -o tsv)
@@ -64,7 +66,8 @@ jobs:
 
             # Permitir serviços do Azure a acessar o SQL
             az sql server firewall-rule show -g "$RG_NAME" -s "$SQL_SERVER" -n AllowAzureServices >/dev/null 2>&1 \
-              || az sql server firewall-rule create -g "$RG_NAME" -s "$SQL_SERVER" -n AllowAzureServices --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
+              || az sql server firewall-rule create -g "$RG_NAME" -s "$SQL_SERVER" -n AllowAzureServices \
+                   --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
 
             # Banco (Basic)
             az sql db show -g "$RG_NAME" -s "$SQL_SERVER" -n "$SQL_DB" >/dev/null 2>&1 \
@@ -81,13 +84,11 @@ jobs:
               SPRING_JPA_HIBERNATE_DDL_AUTO=update \
               APPLICATIONINSIGHTS_CONNECTION_STRING="InstrumentationKey=$INSTR_KEY"
 
-      # ---- Build ----
       - name: Build with Maven
         run: |
           chmod +x mvnw
           ./mvnw -B -DskipTests clean package
 
-      # ---- Deploy ----
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
