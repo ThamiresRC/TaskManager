@@ -163,3 +163,19 @@ flowchart LR
 
 **Feito com ♥ para o Projeto Diamante.**
 Sinta-se à vontade para abrir *issues* e *PRs*!
+## 🚀 Entrega – Checkpoint (Azure)
+
+- **App Service:** tm-fiap-taskmanager (Brazil South)
+- **URL de Produção:** https://tm-fiap-taskmanager-xxxxx.brazilsouth-01.azurewebsites.net/tasks
+- **CI/CD:** GitHub Actions  
+  - Build: .github/workflows/build.yml
+  - Deploy: .github/workflows/deploy.yml
+- **Banco:** Azure SQL (db-taskmanager)
+  - **DDL no repositório:** sql/ddl_taskmanager.sql (tabelas 	ask e udit_log com FK)
+- **Application Insights:** tm-fiap-taskmanager (Brazil South) – Live Metrics e Logs habilitados
+
+### Como testar
+1. Acesse **https://tm-fiap-taskmanager-xxxxx.brazilsouth-01.azurewebsites.net/tasks** e crie/atualize tarefas.  
+2. Os dados persistem no **Azure SQL**.  
+3. Telemetria disponível em **Application Insights → Live Metrics** e **Logs**.
+
